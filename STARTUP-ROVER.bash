@@ -221,6 +221,11 @@ done
 
 VAILD_NAME=0
 while [[ ${VAILD_NAME} -eq 0 ]]; do
+	echo -e "AVAIBLE NETWORK INTERFACES: "
+	for ITEM in $(ip -br a | grep -wi "up" | awk '{ print $1 }'); do
+		echo -e "\t${ITEM}"
+	done
+	
 	echo -e -n "ENTER NETWORK INTERFACE: "
 	read NIC
 	
