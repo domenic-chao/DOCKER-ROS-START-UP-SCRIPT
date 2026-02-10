@@ -5,7 +5,7 @@
 # 
 # AUTHOR: DOMENIC CHAO
 # LAST UPDATED: FEB 09, 2026
-# VERSION: 1.0.0D
+# VERSION: 1.0.1D
 ################################
 
 ## GLOBAL COLOUR VARIBALES
@@ -348,7 +348,6 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			while [[ ${NETWORK_NAME_FOUND} -eq 0 ]]; do
 				if $(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NETWORK_NAME}${NETWORK_ID}); then
 					NETWORK_NAME_FOUND=1
-					NETWORK_NAME="MACVLAN-"
 					NETWORK_NAME+=${NETWORK_ID}
 				fi
 					((NETWORK_ID++))
