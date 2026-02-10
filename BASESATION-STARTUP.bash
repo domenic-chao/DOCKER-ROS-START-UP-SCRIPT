@@ -328,9 +328,9 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			while [[ ${NETWORK_NAME1_FOUND} -eq 0 ]]; do
 				if $(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NETWORK_NAME1}${NETWORK_ID}); then
 					NETWORK_NAME1_FOUND=1
-					NETWORK_NAME1+=${NETWROK_ID}
+					NETWORK_NAME1+=${NETWORK_ID}
 				fi
-					((NETWROK_ID++))
+					((NETWORK_ID++))
 			done
 			
 			docker network create -d macvlan --SUBNET1=${IP_ADDR_CLASS}"."${SUBNET1}".0" --gateway=${IP_ADDR_CLASS}"."${SUBNET1}".1" -o parent=${NIC1} ${NETWORK_NAME1}
@@ -350,9 +350,9 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			while [[ ${NETWORK_NAME2_FOUND} -eq 0 ]]; do
 				if $(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NETWORK_NAME2}${NETWORK_ID}); then
 					NETWORK_NAME2_FOUND=1
-					NETWORK_NAME2+=${NETWROK_ID}
+					NETWORK_NAME2+=${NETWORK_ID}
 				fi
-					((NETWROK_ID++))
+					((NETWORK_ID++))
 			done
 			
 			docker network create -d macvlan --SUBNET1=${IP_ADDR_CLASS}"."${SUBNET2}".0" --gateway=${IP_ADDR_CLASS}"."${SUBNET2}".1" -o parent=${NIC2} ${NETWORK_NAME2}
