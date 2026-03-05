@@ -54,7 +54,7 @@ docker_sudo_access() {
 }
 
 repo_pulled() {
-	return $(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep ${PACKAGE} -wq)
+	return $(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep ${PACKAGE,,} -wq)
 }
 
 old_container_exist() {
@@ -99,7 +99,7 @@ start_container() {
 		done
 	fi
 	
-	docker run --rm -d --network ${NETWORK_NAME} --ip ${IP_ADDR} --name ${NAME} ${ENV_VARS_LINE} ${PACKAGE} sleep infinity &> /dev/null
+	docker run --rm -d --network ${NETWORK_NAME} --ip ${IP_ADDR} --name ${NAME} ${ENV_VARS_LINE} ${PACKAGE,,} sleep infinity &> /dev/null
 	docker exec -it ${NAME} bash -ic 'source /opt/ros/humble/setup.bash; echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
 	 
 }
@@ -159,14 +159,14 @@ provide_docker_access() {
 pull_repo() {
 	echo -e -n "\tPULLING REPO:\t["
 
-	docker pull ${PACKAGE}
+	docker pull ${PACKAGE,,}
 	
 	if repo_pulled; then
 		print_pass
 	else
 		print_fail
 		CRIT_ERROR=1
-		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull' + ${PACKAGE} + '"\n'
+		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull' + ${PACKAGE,,} + '"\n'
 	fi
 }
 
