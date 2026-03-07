@@ -4,8 +4,8 @@
 # RUNS, CONFIGS AND CHECKS THE STARTUP FOR ROVERS
 # 
 # AUTHOR: DOMENIC CHAO
-# LAST UPDATED: FEB 09, 2026
-# VERSION: 1.0.1D
+# LAST UPDATED: MAR 07, 2026
+# VERSION: 1.0.2D
 ################################
 
 ## GLOBAL COLOUR VARIBALES
@@ -15,16 +15,16 @@ NC='\033[0m'	#NO COLOUR
 NCB='\033[1m' 	#NO COLOUR BOLD
 
 ## GLOBAL VARS
-VERSION='1.0.0 DEV'
-PACKAGE='<package-name>'
+VERSION='1.0.2 DEV'			
+PACKAGE='<PACKAGE-NAME>'
 SUBNET=1
 ENV_VAR_NAMES=('ROS_AUTOMATIC_DISCOVERY_RANGE')
 ENV_VAR_EXP_VALUES=('SUBNET')
 IP_ADDR_FINAL_DIGIT=10
 IP_ADDR_CLASS='192.168'
 
-NAME='' 		    # DO NOT EDIT
-NIC=''          # DO NOT EDIT
+NIC=''			# DO NOT EDIT
+NAME=''			# DO NOT EDIT
 CRIT_ERROR=0		# DO NOT EDIT
 CRIT_ERROR_MSG=''	# DO NOT EDIT
 ELEVATED_PERM=0		# DO NOT EDIT
@@ -54,7 +54,7 @@ docker_sudo_access() {
 }
 
 repo_pulled() {
-	return $(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep ${PACKAGE,,} -wq)
+	return $(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep ${PACKAGE} -wq)
 }
 
 old_container_exist() {
@@ -99,8 +99,8 @@ start_container() {
 		done
 	fi
 	
-	docker run --rm -d --network ${NETWORK_NAME} --ip ${IP_ADDR} --name ${NAME} ${ENV_VARS_LINE} ${PACKAGE,,} sleep infinity &> /dev/null
-	docker exec -it ${NAME} bash -ic 'source /opt/ros/humble/setup.bash; echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
+	docker run --rm -d --network ${NETWORK_NAME} --ip ${IP_ADDR} --name ${NAME} ${ENV_VARS_LINE} ${PACKAGE} sleep infinity &> /dev/null
+	docker exec -it ${NAME} bash -ic 'source /opt/ros/humble/setup.bash; echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc' &> /dev/null
 	 
 }
 
@@ -159,14 +159,14 @@ provide_docker_access() {
 pull_repo() {
 	echo -e -n "\tPULLING REPO:\t["
 
-	docker pull ${PACKAGE,,}
+	docker pull ${PACKAGE}
 	
 	if repo_pulled; then
 		print_pass
 	else
 		print_fail
 		CRIT_ERROR=1
-		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull' + ${PACKAGE,,} + '"\n'
+		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull' + ${PACKAGE} + '"\n'
 	fi
 }
 
@@ -204,7 +204,57 @@ set_env_vars() {
 	fi
 }
 
+
+print_interfaces() {
+	INDEX=0
+	
+	echo -e ${NCB}"\\\\-------------SELECT-INTERFACE-------------\\\\"
+	for TMP_NAME in $(ifconfig | grep "RUNNING" | grep -v "^lo" | awk -F ":" '{print $1}'); do
+		echo -e ${NCB}${INDEX}")" ${NC} ${TMP_NAME}	
+		((INDEX++))
+	done
+	MAXID=$INDEX
+
+}
+
+ERROR=""
+select_interface() {
+	clear
+	SI_VALID=0
+	MAXID=0
+	NIC=""
+	
+	while [[ SI_VALID -eq 0 ]]; do
+		print_interfaces
+		
+		echo -e -n ${RB}${ERROR}${NC}"> " 
+		read SELECTION
+		
+		if [[ $SELECTION -ge 0 && $SELECTION -lt $MAXID ]]; then
+			ERROR=""
+			((SELECTION++))
+			
+			VALUE=$(ifconfig | grep "RUNNING" | grep -v "^lo" | awk -F ":" '{print $1}'| sed -n "${SELECTION}p")
+			
+			if [[ -z "$VALUE" ]]; then
+				ERROR="INVAILD SELECTION"
+				select_interface
+			else
+				SI_VALID=1
+				NIC=$VALUE
+			fi	
+
+		else 
+			ERROR="INVAILD SELECTION"
+			select_interface
+		fi
+	done
+}
+
+
 ## MAIN
+clear
+
 VAILD_NAME=0
 while [[ ${VAILD_NAME} -eq 0 ]]; do
 	echo -e -n "ENTER CONTAINER NAME: "
@@ -219,22 +269,9 @@ while [[ ${VAILD_NAME} -eq 0 ]]; do
 	fi
 done
 
-VAILD_NAME=0
-while [[ ${VAILD_NAME} -eq 0 ]]; do
-	echo -e "AVAIBLE NETWORK INTERFACES: "
-	for ITEM in $(ip -br a | grep -wi "up" | awk '{ print $1 }'); do
-		echo -e "\t${ITEM}"
-	done
-	
-	echo -e -n "ENTER NETWORK INTERFACE: "
-	read NIC
-	
-	if $(ip route | grep -q ${NIC}); then
-		VAILD_NAME=1
-	else
-		echo "INVAILD NETWORK INTERFACE"
-	fi
-done
+select_interface
+clear
+
 
 if [[ $EUID -eq 0 || -n "$SUDO_USER" ]]; then
 	ELEVATED_PERM=1
@@ -332,7 +369,7 @@ echo -e -n "NETWORK EXISTS:\t\t\t["
 if [[ ${CRIT_ERROR} -eq 0 ]]; then
 	if network_exists; then
 		print_pass
-		NETWORK_NAME=$(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NIC} | awk '{ print $1 }')
+		NETWORK_NAME=$(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NIC} | grep ${IP_ADDR_CLASS}"."${SUBNET}"." | awk '{ print $1 }')
 		IP_ADDR=$IP_ADDR_CLASS
 		IP_ADDR+="."$SUBNET
 		IP_ADDR+="."$IP_ADDR_FINAL_DIGIT
@@ -348,9 +385,9 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			while [[ ${NETWORK_NAME_FOUND} -eq 0 ]]; do
 				if $(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NETWORK_NAME}${NETWORK_ID}); then
 					NETWORK_NAME_FOUND=1
-					NETWORK_NAME+=${NETWORK_ID}
+					NETWORK_NAME+=${NETWROK_ID}
 				fi
-					((NETWORK_ID++))
+					((NETWROK_ID++))
 			done
 			
 			docker network create -d macvlan --subnet=${IP_ADDR_CLASS}"."${SUBNET}".0" --gateway=${IP_ADDR_CLASS}"."${SUBNET}".1" -o parent=${NIC} ${NETWORK_NAME}
@@ -371,10 +408,20 @@ else
 	print_fail
 fi
 
+if $(echo ${NETWORK_NAME} | grep " " -w); then
+	CRIT_ERROR=1
+	CRIT_ERROR_MSG="\tTWO DOCKER NETWORK FOUND WITH SAME NIC AND IP"
+fi
+
 ## STARTING AND CHECKING IF CONTAINER IS ONLINE
 echo -e -n "STARTING CONTAINER:\t\t["
-start_container
-print_pass
+
+if [[ ${CRIT_ERROR} -eq 0 ]]; then
+	start_container
+	print_pass
+else
+	print_fail
+fi
 
 ## ENSURING CONTAINER IS ONLINE
 echo -e -n "CONTAINER ONLINE:\t\t["
@@ -412,20 +459,6 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 		if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			set_env_vars
 		fi
-	fi
-else
-	print_fail
-fi
-
-##CHECKING NETWORK VISABLE ON HOST
-echo -e  -n "NETWORK VISABLE:\t\t["
-if [[ ${CRIT_ERROR} -eq 0 ]]; then
-	if check_network; then
-		print_pass
-	else
-		print_fail
-		CRIT_ERROR=1
-		CRIT_ERROR_MSG="\tUNABLE TO PING CONTAINER ON ${IP_ADDR}. CHECK HOST CONFIGURATION AND TRY TO PING FROM EXTERNAL DEVICE"
 	fi
 else
 	print_fail
