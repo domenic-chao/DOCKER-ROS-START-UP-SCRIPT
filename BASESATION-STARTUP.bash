@@ -4,8 +4,8 @@
 # RUNS, CONFIGS AND CHECKS THE STARTUP FOR BASESTATIONS
 # 
 # AUTHOR: DOMENIC CHAO
-# LAST UPDATED: FEB 09, 2026
-# VERSION: 1.0.0D
+# LAST UPDATED: MAR 08, 2026
+# VERSION: 1.0.3D
 ################################
 
 ## GLOBAL COLOUR VARIBALES
@@ -15,13 +15,13 @@ NC='\033[0m'	#NO COLOUR
 NCB='\033[1m' 	#NO COLOUR BOLD
 
 ## GLOBAL VARS
-VERSION='1.0.0 DEV'
+VERSION='1.0.3 DEV'
 NAME='BASESTATION' 					
-PACKAGE='<package-name>'
+PACKAGE='<your-package-name>'
 SUBNET1=1
 NIC1='eth0'
 SUBNET2=2
-NIC2='eth1'
+NIC2='eth0'
 ENV_VAR_NAMES=('ROS_AUTOMATIC_DISCOVERY_RANGE')
 ENV_VAR_EXP_VALUES=('SUBNET')
 IP_ADDR_FINAL_DIGIT=20
@@ -58,7 +58,7 @@ docker_sudo_access() {
 }
 
 repo_pulled() {
-	return $(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep ${PACKAGE,,} -wq)
+	return $(docker image ls --format "{{.Repository}}:{{.Tag}}" | grep ${PACKAGE} -wq)
 }
 
 old_container_exist() {
@@ -103,7 +103,7 @@ start_container() {
 		done
 	fi
 	
-	docker run --rm -d --network ${NETWORK_NAME1} --ip ${IP_ADDR1} --name ${NAME} ${ENV_VARS_LINE} ${PACKAGE,,} sleep infinity &> /dev/null
+	docker run --rm -d --network ${NETWORK_NAME1} --ip ${IP_ADDR1} --name ${NAME} ${ENV_VARS_LINE} ${PACKAGE} sleep infinity &> /dev/null
 	docker network connect --ip ${IP_ADDR2} ${NETWORK_NAME2} ${NAME}
 	docker exec -it ${NAME} bash -ic 'source /opt/ros/humble/setup.bash; echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc'
 }
@@ -161,16 +161,16 @@ provide_docker_access() {
 }
 
 pull_repo() {
-	echo -e -n "\tPULLING REPO:\t["
+	echo -e -n "\tPULLING REPO:\t\t["
 
-	docker pull ${PACKAGE,,}
+	docker pull ${PACKAGE} &> /dev/null
 	
 	if repo_pulled; then
 		print_pass
 	else
 		print_fail
 		CRIT_ERROR=1
-		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull' + ${PACKAGE,,} + '"\n'
+		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull '${PACKAGE}'"\n'
 	fi
 }
 
@@ -305,12 +305,12 @@ echo -e -n "NETWORK EXISTS:\t\t\t["
 if [[ ${CRIT_ERROR} -eq 0 ]]; then
 	if network_exists; then
 		print_pass
-		NETWORK_NAME1=$(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NIC1} | awk '{ print $1 }')
+		NETWORK_NAME1=$(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NIC1} | grep "\.${SUBNET1}\." | awk '{ print $1 }')
 		IP_ADDR1=$IP_ADDR_CLASS
 		IP_ADDR1+="."$SUBNET1
 		IP_ADDR1+="."$IP_ADDR_FINAL_DIGIT
 		
-		NETWORK_NAME2=$(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NIC2} | awk '{ print $1 }')
+		NETWORK_NAME2=$(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NIC2} | grep "\.${SUBNET2}\." | awk '{ print $1 }')
 		IP_ADDR2=$IP_ADDR_CLASS
 		IP_ADDR2+="."$SUBNET2
 		IP_ADDR2+="."$IP_ADDR_FINAL_DIGIT
@@ -328,9 +328,9 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			while [[ ${NETWORK_NAME1_FOUND} -eq 0 ]]; do
 				if $(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NETWORK_NAME1}${NETWORK_ID}); then
 					NETWORK_NAME1_FOUND=1
-					NETWORK_NAME1+=${NETWORK_ID}
+					NETWORK_NAME1+=${NETWROK_ID}
 				fi
-					((NETWORK_ID++))
+					((NETWROK_ID++))
 			done
 			
 			docker network create -d macvlan --SUBNET1=${IP_ADDR_CLASS}"."${SUBNET1}".0" --gateway=${IP_ADDR_CLASS}"."${SUBNET1}".1" -o parent=${NIC1} ${NETWORK_NAME1}
@@ -350,9 +350,9 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			while [[ ${NETWORK_NAME2_FOUND} -eq 0 ]]; do
 				if $(docker network inspect $(docker network ls --filter type=custom -q) --format "{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}} {{.Options.parent}}" |grep ${NETWORK_NAME2}${NETWORK_ID}); then
 					NETWORK_NAME2_FOUND=1
-					NETWORK_NAME2+=${NETWORK_ID}
+					NETWORK_NAME2+=${NETWROK_ID}
 				fi
-					((NETWORK_ID++))
+					((NETWROK_ID++))
 			done
 			
 			docker network create -d macvlan --SUBNET1=${IP_ADDR_CLASS}"."${SUBNET2}".0" --gateway=${IP_ADDR_CLASS}"."${SUBNET2}".1" -o parent=${NIC2} ${NETWORK_NAME2}
@@ -414,20 +414,6 @@ if [[ ${CRIT_ERROR} -eq 0 ]]; then
 		if [[ ${CRIT_ERROR} -eq 0 ]]; then
 			set_env_vars
 		fi
-	fi
-else
-	print_fail
-fi
-
-##CHECKING NETWORK VISABLE ON HOST
-echo -e  -n "NETWORK VISABLE:\t\t["
-if [[ ${CRIT_ERROR} -eq 0 ]]; then
-	if check_network; then
-		print_pass
-	else
-		print_fail
-		CRIT_ERROR=1
-		CRIT_ERROR_MSG="\tUNABLE TO PING CONTAINER ON ${IP_ADDR1}. CHECK HOST CONFIGURATION AND TRY TO PING FROM EXTERNAL DEVICE"
 	fi
 else
 	print_fail
