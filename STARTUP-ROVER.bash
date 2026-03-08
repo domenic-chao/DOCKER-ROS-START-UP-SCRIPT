@@ -5,7 +5,7 @@
 # 
 # AUTHOR: DOMENIC CHAO
 # LAST UPDATED: MAR 07, 2026
-# VERSION: 1.0.2D
+# VERSION: 1.0.3D
 ################################
 
 ## GLOBAL COLOUR VARIBALES
@@ -15,8 +15,8 @@ NC='\033[0m'	#NO COLOUR
 NCB='\033[1m' 	#NO COLOUR BOLD
 
 ## GLOBAL VARS
-VERSION='1.0.2 DEV'			
-PACKAGE='<PACKAGE-NAME>'
+VERSION='1.0.3 DEV'			
+PACKAGE='<your-package-name>'
 SUBNET=1
 ENV_VAR_NAMES=('ROS_AUTOMATIC_DISCOVERY_RANGE')
 ENV_VAR_EXP_VALUES=('SUBNET')
@@ -157,16 +157,16 @@ provide_docker_access() {
 }
 
 pull_repo() {
-	echo -e -n "\tPULLING REPO:\t["
+	echo -e -n "\tPULLING REPO:\t\t["
 
-	docker pull ${PACKAGE}
+	docker pull ${PACKAGE} &> /dev/null
 	
 	if repo_pulled; then
 		print_pass
 	else
 		print_fail
 		CRIT_ERROR=1
-		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull' + ${PACKAGE} + '"\n'
+		CRIT_ERROR_MSG+='\tDOCKER PACKAGE NOT PULLED, TRY RUNNING "docker pull '${PACKAGE}'"\n'
 	fi
 }
 
